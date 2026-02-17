@@ -96,6 +96,7 @@ public with sharing class HierarchicalRecordCreator {
             res.isSuccess = false;
             res.errorMessage = '';
 
+            Savepoint sp = Database.setSavepoint();
             try {
                 // --- Validation ---
                 validateInputs(req);
@@ -136,15 +137,10 @@ public with sharing class HierarchicalRecordCreator {
 
                 res.isSuccess = true;
 
-            } catch (DmlException dmlEx) {
-                // DML failure — transaction is rolled back by Apex runtime.
-                // Re-throw so the Flow receives it on the Fault connector.
-                throw dmlEx;
-            } catch (IllegalArgumentException argEx) {
-                // Validation failure — no DML has occurred or partial DML is rolled back.
-                throw argEx;
             } catch (Exception ex) {
-                // Unexpected error — roll back and surface to Flow.
+                // Explicit rollback ensures all DML in this invocation is undone,
+                // regardless of calling context (Flow, test, direct Apex).
+                Database.rollback(sp);
                 throw ex;
             }
 
