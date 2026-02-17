@@ -60,6 +60,7 @@ Pre-commit hook (Husky + lint-staged) auto-formats staged files on commit.
 ### Index Mapping Pattern
 
 Flow lacks Map/dictionary support, so child→parent relationships use parallel integer lists:
+
 ```
 children: [Contact-1, Contact-2, Contact-3]
 indices:  [0,         0,         1]

@@ -20,10 +20,10 @@ Since Flow doesn't support Maps or nested objects, we use a **parallel index lis
 
 Think of it like a two-column spreadsheet:
 
-| Child Record | Parent Index |
-|---|---|
-| Contact "Alice" | 0 (→ first Account) |
-| Contact "Bob" | 0 (→ first Account) |
+| Child Record    | Parent Index         |
+| --------------- | -------------------- |
+| Contact "Alice" | 0 (→ first Account)  |
+| Contact "Bob"   | 0 (→ first Account)  |
 | Contact "Carol" | 1 (→ second Account) |
 
 You build this index list in Flow using a counter variable inside a Loop.
@@ -36,14 +36,14 @@ You build this index list in Flow using a counter variable inside a Loop.
 
 Create these variables in your Flow:
 
-| Variable Name | Type | Description |
-|---|---|---|
-| `varAccountCollection` | Record Collection (Account) | Holds the parent Account records |
-| `varContactCollection` | Record Collection (Contact) | Holds the child Contact records |
-| `varContactParentIndex` | Number Collection | Maps each Contact to its parent Account position |
-| `varParentCounter` | Number (default: 0) | Tracks the current parent's position |
-| `varParentIds` | Text Collection | Receives output parent IDs |
-| `varChildIds` | Text Collection | Receives output child IDs |
+| Variable Name           | Type                        | Description                                      |
+| ----------------------- | --------------------------- | ------------------------------------------------ |
+| `varAccountCollection`  | Record Collection (Account) | Holds the parent Account records                 |
+| `varContactCollection`  | Record Collection (Contact) | Holds the child Contact records                  |
+| `varContactParentIndex` | Number Collection           | Maps each Contact to its parent Account position |
+| `varParentCounter`      | Number (default: 0)         | Tracks the current parent's position             |
+| `varParentIds`          | Text Collection             | Receives output parent IDs                       |
+| `varChildIds`           | Text Collection             | Receives output child IDs                        |
 
 ### 2. Build Parent Records
 
@@ -72,19 +72,19 @@ The key insight: every Contact added during the inner loop gets the **same** `va
 2. Search for **"Create Hierarchical Records"**.
 3. Configure inputs:
 
-| Input | Value |
-|---|---|
-| Parent Records | `{!varAccountCollection}` |
-| Child Records | `{!varContactCollection}` |
-| Child Lookup Field API Name | `AccountId` |
-| Child-to-Parent Index Map | `{!varContactParentIndex}` |
+| Input                       | Value                      |
+| --------------------------- | -------------------------- |
+| Parent Records              | `{!varAccountCollection}`  |
+| Child Records               | `{!varContactCollection}`  |
+| Child Lookup Field API Name | `AccountId`                |
+| Child-to-Parent Index Map   | `{!varContactParentIndex}` |
 
 4. Configure outputs:
 
-| Output | Store In |
-|---|---|
+| Output            | Store In          |
+| ----------------- | ----------------- |
 | Parent Record IDs | `{!varParentIds}` |
-| Child Record IDs | `{!varChildIds}` |
+| Child Record IDs  | `{!varChildIds}`  |
 
 ### 5. Add a Fault Connector
 
@@ -102,12 +102,12 @@ Same as above, with an additional level:
 
 ### Additional Variables
 
-| Variable Name | Type | Description |
-|---|---|---|
-| `varCaseCollection` | Record Collection (Case) | Grandchild Case records |
-| `varCaseChildIndex` | Number Collection | Maps each Case to its parent Contact position |
-| `varChildCounter` | Number (default: 0) | Tracks current child's position |
-| `varGrandchildIds` | Text Collection | Receives output grandchild IDs |
+| Variable Name       | Type                     | Description                                   |
+| ------------------- | ------------------------ | --------------------------------------------- |
+| `varCaseCollection` | Record Collection (Case) | Grandchild Case records                       |
+| `varCaseChildIndex` | Number Collection        | Maps each Case to its parent Contact position |
+| `varChildCounter`   | Number (default: 0)      | Tracks current child's position               |
+| `varGrandchildIds`  | Text Collection          | Receives output grandchild IDs                |
 
 ### Building the Case Index
 
@@ -130,15 +130,81 @@ Loop: For each parent Account
 
 ### Action Configuration (3 Levels)
 
-| Input | Value |
-|---|---|
-| Parent Records | `{!varAccountCollection}` |
-| Child Records | `{!varContactCollection}` |
-| Child Lookup Field API Name | `AccountId` |
-| Child-to-Parent Index Map | `{!varContactParentIndex}` |
-| Grandchild Records | `{!varCaseCollection}` |
-| Grandchild Lookup Field API Name | `ContactId` |
-| Grandchild-to-Child Index Map | `{!varCaseChildIndex}` |
+| Input                            | Value                      |
+| -------------------------------- | -------------------------- |
+| Parent Records                   | `{!varAccountCollection}`  |
+| Child Records                    | `{!varContactCollection}`  |
+| Child Lookup Field API Name      | `AccountId`                |
+| Child-to-Parent Index Map        | `{!varContactParentIndex}` |
+| Grandchild Records               | `{!varCaseCollection}`     |
+| Grandchild Lookup Field API Name | `ContactId`                |
+| Grandchild-to-Child Index Map    | `{!varCaseChildIndex}`     |
+
+---
+
+## Field-Based Matching (Alternative to Index Lists)
+
+Instead of building parallel index lists with counters, you can match children to parents by **field values**. This is especially useful when your records come from a data source with natural keys (external IDs, codes, email addresses, etc.).
+
+### Concept
+
+You tell the action which field on the child holds a "match key" and which field on the parent holds the corresponding unique value. The action matches them automatically.
+
+```
+Parent Accounts:
+  Account "Alpha Inc"  → AccountNumber = "ALPHA-001"
+  Account "Beta LLC"   → AccountNumber = "BETA-002"
+
+Child Contacts:
+  Contact "Alice"  → Department = "ALPHA-001"  → matches Alpha Inc
+  Contact "Bob"    → Department = "ALPHA-001"  → matches Alpha Inc
+  Contact "Carol"  → Department = "BETA-002"   → matches Beta LLC
+```
+
+### Step-by-Step: Field-Based Matching (Account → Contact)
+
+#### 1. Create Flow Variables
+
+| Variable Name          | Type                        | Description                                               |
+| ---------------------- | --------------------------- | --------------------------------------------------------- |
+| `varAccountCollection` | Record Collection (Account) | Parent Account records with a unique key field populated  |
+| `varContactCollection` | Record Collection (Contact) | Child Contact records with a matching key field populated |
+| `varParentIds`         | Text Collection             | Receives output parent IDs                                |
+| `varChildIds`          | Text Collection             | Receives output child IDs                                 |
+
+#### 2. Build Records with Match Keys
+
+Populate each Account's key field (e.g., `AccountNumber`) and each Contact's corresponding field (e.g., `Department`) with matching values. No counters or index lists needed.
+
+#### 3. Configure the Action
+
+| Input                       | Value                     |
+| --------------------------- | ------------------------- |
+| Parent Records              | `{!varAccountCollection}` |
+| Child Records               | `{!varContactCollection}` |
+| Child Lookup Field API Name | `AccountId`               |
+| Child Match Field           | `Department`              |
+| Parent Match Field          | `AccountNumber`           |
+
+> **Note:** Leave `Child-to-Parent Index Map` empty when using field-based matching. The two modes are mutually exclusive at each level.
+
+#### 4. Rules to Follow
+
+- **Parent key values must be unique.** If two Accounts have the same `AccountNumber`, the action will return an error.
+- **Every child must have a match.** If a Contact's `Department` value doesn't match any Account's `AccountNumber`, the action will return an error.
+- **No nulls or blanks.** All match field values must be populated on both sides.
+- **Case-insensitive.** `ABC-001` will match `abc-001`.
+
+### Mixing Modes Across Levels
+
+You can use index-based mapping at one level and field-based matching at another. For example:
+
+| Level                       | Mode        | Inputs                                                |
+| --------------------------- | ----------- | ----------------------------------------------------- |
+| Child (Account → Contact)   | Index-based | `childParentIndex`                                    |
+| Grandchild (Contact → Case) | Field-based | `grandchildMatchField` + `grandchildParentMatchField` |
+
+This is fully supported — just don't use both modes at the **same** level.
 
 ---
 
@@ -146,15 +212,15 @@ Loop: For each parent Account
 
 The action works with any object. For a custom hierarchy like `Order__c → Order_Line__c → Line_Schedule__c`:
 
-| Input | Value |
-|---|---|
-| Parent Records | Collection of `Order__c` records |
-| Child Records | Collection of `Order_Line__c` records |
-| Child Lookup Field API Name | `Order__c` (the lookup field API name on Order_Line__c) |
-| Child-to-Parent Index Map | Index list |
-| Grandchild Records | Collection of `Line_Schedule__c` records |
-| Grandchild Lookup Field API Name | `Order_Line__c` (the lookup field API name on Line_Schedule__c) |
-| Grandchild-to-Child Index Map | Index list |
+| Input                            | Value                                                             |
+| -------------------------------- | ----------------------------------------------------------------- |
+| Parent Records                   | Collection of `Order__c` records                                  |
+| Child Records                    | Collection of `Order_Line__c` records                             |
+| Child Lookup Field API Name      | `Order__c` (the lookup field API name on Order_Line\_\_c)         |
+| Child-to-Parent Index Map        | Index list                                                        |
+| Grandchild Records               | Collection of `Line_Schedule__c` records                          |
+| Grandchild Lookup Field API Name | `Order_Line__c` (the lookup field API name on Line_Schedule\_\_c) |
+| Grandchild-to-Child Index Map    | Index list                                                        |
 
 > **Important:** Use the **field API name**, not the relationship name. For custom lookups, this usually ends in `__c`. For standard lookups, it's the field name like `AccountId` or `ContactId`.
 
@@ -166,14 +232,19 @@ The action works with any object. For a custom hierarchy like `Order__c → Orde
 2. Display `{!$Flow.FaultMessage}` on an error screen so users know what went wrong.
 3. Common errors and their causes:
 
-| Error | Cause |
-|---|---|
-| `parentRecords is required and must not be empty` | No parent records passed to the action. |
-| `childLookupField is required` | Provided child records but forgot to specify the lookup field name. |
-| `must be the same size` | Your child collection and index list have different lengths. A child is missing its index or vice versa. |
-| `out of bounds` | An index value points to a parent position that doesn't exist. Check your counter logic. |
-| `REQUIRED_FIELD_MISSING` | A record is missing a required field value. Pre-populate all required fields before passing to the action. |
-| `FIELD_INTEGRITY_EXCEPTION` | A field value is invalid (wrong data type, picklist value, etc.). |
+| Error                                             | Cause                                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `parentRecords is required and must not be empty` | No parent records passed to the action.                                                                             |
+| `childLookupField is required`                    | Provided child records but forgot to specify the lookup field name.                                                 |
+| `must be the same size`                           | Your child collection and index list have different lengths. A child is missing its index or vice versa.            |
+| `out of bounds`                                   | An index value points to a parent position that doesn't exist. Check your counter logic.                            |
+| `Cannot use both`                                 | You provided both an index list and match fields at the same level. Use one approach or the other.                  |
+| `must be provided together`                       | You provided only one of the match field pair. Both `childMatchField` and `parentMatchField` are required together. |
+| `Duplicate ... value`                             | Two parent records have the same match field value. Parent-side values must be unique.                              |
+| `does not match any parent-side`                  | A child record's match value doesn't correspond to any parent record. Check your key values.                        |
+| `null or blank`                                   | A match field value is missing on a record. All match field values must be populated.                               |
+| `REQUIRED_FIELD_MISSING`                          | A record is missing a required field value. Pre-populate all required fields before passing to the action.          |
+| `FIELD_INTEGRITY_EXCEPTION`                       | A field value is invalid (wrong data type, picklist value, etc.).                                                   |
 
 ---
 
