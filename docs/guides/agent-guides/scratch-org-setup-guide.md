@@ -29,6 +29,7 @@ rpa-so-{descriptor}
 Where `{descriptor}` is a one to two word description of the org's purpose.
 
 **Examples:**
+
 - `rpa-so-security` - Security review testing
 - `rpa-so-crud` - CRUD/FLS validation work
 - `rpa-so-webhook` - Webhook feature development
@@ -79,14 +80,14 @@ sf org open --target-org rpa-so-{descriptor}
 
 The `config/project-scratch-def.json` definition creates orgs with:
 
-| Setting | Value |
-|---------|-------|
-| Org Name | rpa_scratch |
-| Edition | Enterprise |
-| Country | US |
-| Language | en_US |
-| Sample Data | Yes |
-| Features | API |
+| Setting     | Value       |
+| ----------- | ----------- |
+| Org Name    | rpa_scratch |
+| Edition     | Enterprise  |
+| Country     | US          |
+| Language    | en_US       |
+| Sample Data | Yes         |
+| Features    | API         |
 
 ---
 
@@ -114,13 +115,13 @@ sf org delete scratch --target-org rpa-so-{descriptor} --no-prompt
 
 ## Quick Reference
 
-| Action | Command |
-|--------|---------|
+| Action             | Command                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Create scratch org | `sf org create scratch --definition-file config/project-scratch-def.json --alias rpa-so-{descriptor} --set-default --target-dev-hub rpa-dev-hub` |
-| Push source | `sf project deploy start` |
-| Open org | `sf org open --target-org rpa-so-{descriptor}` |
-| List orgs | `sf org list --all` |
-| Delete org | `sf org delete scratch --target-org rpa-so-{descriptor} --no-prompt` |
+| Push source        | `sf project deploy start`                                                                                                                        |
+| Open org           | `sf org open --target-org rpa-so-{descriptor}`                                                                                                   |
+| List orgs          | `sf org list --all`                                                                                                                              |
+| Delete org         | `sf org delete scratch --target-org rpa-so-{descriptor} --no-prompt`                                                                             |
 
 ---
 
@@ -148,6 +149,6 @@ Run the command from the project root directory where the `config` folder is loc
 
 ## Version History
 
-| Date | Author | Changes |
-|------|--------|---------|
-| 2026-01-29 | - | Initial version |
+| Date       | Author | Changes         |
+| ---------- | ------ | --------------- |
+| 2026-01-29 | -      | Initial version |
