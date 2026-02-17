@@ -490,4 +490,138 @@ private class HierarchicalRecordCreatorTest {
 
         System.assert(exceptionThrown, 'Should throw IllegalArgumentException for negative index');
     }
+
+    /**
+     * Test 16: Rollback on grandchild DML failure.
+     * Inserts valid parents and children, then grandchildren with a missing
+     * required field to trigger a DmlException. Verifies all levels are rolled back.
+     */
+    @IsTest
+    static void testRollbackOnGrandchildDmlFailure() {
+        HierarchicalRecordCreator.Request req = new HierarchicalRecordCreator.Request();
+        req.parentRecords = new List<SObject>{
+            new Account(Name = 'GC DML Rollback Parent')
+        };
+        req.childRecords = new List<SObject>{
+            new Contact(LastName = 'GC DML Rollback Child')
+        };
+        req.childLookupField = 'AccountId';
+        req.childParentIndex = new List<Integer>{ 0 };
+
+        // Case without a required Origin field won't fail on its own,
+        // but putting an invalid lookup (bogus Id) on a polymorphic field will.
+        // Instead, use a Contact as grandchild with missing LastName to force DML error.
+        req.grandchildRecords = new List<SObject>{
+            new Contact() // Missing LastName — required field
+        };
+        req.grandchildLookupField = 'AccountId';
+        req.grandchildParentIndex = new List<Integer>{ 0 };
+
+        Boolean exceptionThrown = false;
+        Test.startTest();
+        try {
+            HierarchicalRecordCreator.createRecords(new List<HierarchicalRecordCreator.Request>{ req });
+        } catch (DmlException e) {
+            exceptionThrown = true;
+        }
+        Test.stopTest();
+
+        System.assert(exceptionThrown, 'Should throw DmlException for missing required field on grandchild');
+
+        // Verify full rollback — no parents or children should persist
+        List<Account> accounts = [SELECT Id FROM Account WHERE Name = 'GC DML Rollback Parent'];
+        System.assertEquals(0, accounts.size(), 'Parent records should be rolled back');
+
+        List<Contact> contacts = [SELECT Id FROM Contact WHERE LastName = 'GC DML Rollback Child'];
+        System.assertEquals(0, contacts.size(), 'Child records should be rolled back');
+    }
+
+    /**
+     * Test 17: Null value in childParentIndex.
+     * Validates that a null entry in the index list is caught during validation.
+     */
+    @IsTest
+    static void testNullIndexValue() {
+        HierarchicalRecordCreator.Request req = new HierarchicalRecordCreator.Request();
+        req.parentRecords = new List<SObject>{ new Account(Name = 'Test') };
+        req.childRecords = new List<SObject>{
+            new Contact(LastName = 'Child1'),
+            new Contact(LastName = 'Child2')
+        };
+        req.childLookupField = 'AccountId';
+        req.childParentIndex = new List<Integer>{ 0, null };
+
+        Boolean exceptionThrown = false;
+        String errorMsg = '';
+        Test.startTest();
+        try {
+            HierarchicalRecordCreator.createRecords(new List<HierarchicalRecordCreator.Request>{ req });
+        } catch (IllegalArgumentException e) {
+            exceptionThrown = true;
+            errorMsg = e.getMessage();
+        }
+        Test.stopTest();
+
+        System.assert(exceptionThrown, 'Should throw IllegalArgumentException for null index');
+        System.assert(errorMsg.contains('out of bounds'), 'Error should mention out of bounds');
+    }
+
+    /**
+     * Test 18: Large volume — 200 parents, 1000 children, 2000 grandchildren.
+     * Verifies bulk DML behavior and governor limit compliance.
+     */
+    @IsTest
+    static void testLargeVolumeBulkInsert() {
+        HierarchicalRecordCreator.Request req = new HierarchicalRecordCreator.Request();
+
+        // 200 parent Accounts
+        List<SObject> parents = new List<SObject>();
+        for (Integer i = 0; i < 200; i++) {
+            parents.add(new Account(Name = 'Bulk Parent ' + i));
+        }
+        req.parentRecords = parents;
+
+        // 1000 child Contacts — 5 per parent
+        List<SObject> children = new List<SObject>();
+        List<Integer> childIndices = new List<Integer>();
+        for (Integer i = 0; i < 1000; i++) {
+            children.add(new Contact(LastName = 'Bulk Child ' + i));
+            childIndices.add(Math.mod(i, 200)); // distribute evenly across parents
+        }
+        req.childRecords = children;
+        req.childLookupField = 'AccountId';
+        req.childParentIndex = childIndices;
+
+        // 2000 grandchild Cases — 2 per child
+        List<SObject> grandchildren = new List<SObject>();
+        List<Integer> grandchildIndices = new List<Integer>();
+        for (Integer i = 0; i < 2000; i++) {
+            grandchildren.add(new Case(Subject = 'Bulk Case ' + i, Origin = 'Web'));
+            grandchildIndices.add(Math.mod(i, 1000)); // distribute evenly across children
+        }
+        req.grandchildRecords = grandchildren;
+        req.grandchildLookupField = 'ContactId';
+        req.grandchildParentIndex = grandchildIndices;
+
+        Test.startTest();
+        List<HierarchicalRecordCreator.Response> responses =
+            HierarchicalRecordCreator.createRecords(new List<HierarchicalRecordCreator.Request>{ req });
+        Test.stopTest();
+
+        HierarchicalRecordCreator.Response res = responses[0];
+        System.assertEquals(true, res.isSuccess, 'Bulk insert should succeed');
+        System.assertEquals(200, res.parentIds.size(), 'Should return 200 parent IDs');
+        System.assertEquals(1000, res.childIds.size(), 'Should return 1000 child IDs');
+        System.assertEquals(2000, res.grandchildIds.size(), 'Should return 2000 grandchild IDs');
+
+        // Spot-check: verify a child is linked to the correct parent
+        Contact spotCheck = [SELECT AccountId FROM Contact WHERE Id = :res.childIds[0]];
+        System.assertEquals(res.parentIds[0], spotCheck.AccountId,
+            'First child should be linked to first parent');
+
+        // Spot-check: verify a grandchild is linked to the correct child
+        Case caseCheck = [SELECT ContactId FROM Case WHERE Id = :res.grandchildIds[0]];
+        System.assertEquals(res.childIds[0], caseCheck.ContactId,
+            'First grandchild should be linked to first child');
+    }
 }
